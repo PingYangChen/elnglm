@@ -1,13 +1,32 @@
 Package: elnglm
 Type: Package
-Title: What the package does (short line)
-Version: 1.0
-Date: 2021-12-16
-Author: Who wrote it
-Maintainer: Who to complain to
-      <yourfault@somewhere.net>
-Description: More about what it does (maybe more than
-      one line)
-License: What license is it under?
-Imports: Rcpp (>= 1.0.7)
-LinkingTo: Rcpp, RcppArmadillo
+Title: Generalized Linear Model with Elastic Net Penalty
+Version: 0.1.0
+Authors@R: person("Ping-Yang", "Chen", , "pychen.ping@gmail.com", c("aut", "cre"))
+Author: Ping-Yang Chen [aut, cre]
+Maintainer: Ping-Yang Chen <pychen.ping@gmail.com>
+Description: More about what it does (maybe more than one line)
+    Use four spaces when indenting paragraphs within the Description.
+License: MIT
+Encoding: UTF-8
+LazyData: true
+LazyData: true
+Depends:
+    R (>= 4.1.2)
+Imports:
+    utils,
+    numDeriv,
+    Rcpp (>= 1.0.7),
+    RcppArmadillo,
+    RcppEigen,
+    RcppParallel
+Suggests:
+    kintr
+VignetteBuilder:
+    kintr,
+    rmarkdown 
+LinkingTo: 
+  Rcpp
+RoxygenNote: 7.1.1
+
+
