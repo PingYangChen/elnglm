@@ -1,13 +1,4 @@
-//
-#include <RcppArmadillo.h>
-#include <math.h>
-
-//#include <RcppEigen.h>
-
-using namespace arma;
-using namespace Rcpp;
-
-// [[Rcpp::depends(RcppArmadillo)]]
+#include <header.h>
 
 double shooting(double z, double r)
 {

@@ -10,7 +10,6 @@ Description: More about what it does (maybe more than one line)
 License: MIT
 Encoding: UTF-8
 LazyData: true
-LazyData: true
 Depends:
     R (>= 4.1.2)
 Imports:
@@ -26,7 +25,7 @@ VignetteBuilder:
     kintr,
     rmarkdown 
 LinkingTo: 
-  Rcpp
+    Rcpp
 RoxygenNote: 7.1.1
 
 

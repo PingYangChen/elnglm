@@ -9,6 +9,7 @@ library(RcppArmadillo)
 sourceCpp(file.path(path, "elnglm.cpp"))
 
 
+
 alpha = 0.5
 maxit = 100
 lambdaLength = 100
