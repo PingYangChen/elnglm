@@ -37,7 +37,6 @@ Use \code{glmDataGen} to generate data with continuous response.
 ```{r, eval=TRUE}
 library(elnglm)
 
-
 set.seed(1)
 trueb0 <- 1
 trueact <- c(1, 1, 1, 0, 0, 0, 0, 0, 0, 0)
@@ -78,6 +77,106 @@ resPkg$cvm
 resPkg$glmnet.fit$a0[1]
 resPkg$glmnet.fit$beta[,1]
 resPkg$lambda
+
+```
+
+
+### Binary Response
+
+```{r, eval=TRUE}
+set.seed(1)
+trueb0 <- 1
+trueact <- c(1, 1, 1, 0, 0, 0, 0, 0, 0, 0)
+trueb <- runif(10, -1, 1)*10
+trueb[which(trueact == 0)] <- 0 
+#
+dfb <- glmDataGen(500, 10, family = "binomial", trueb0, trueb, s = 0.5, seed = 1)
+
+```
+
+
+```{r, eval=TRUE}
+resSelf_b <- glmPenaltyCV(y = dfb$y, x = dfb$x, family = "binomial", 
+                          lambdaLength = 100, maxit = 1e5, tol = 1e-7,
+                          alpha = 0.5, minLambdaRatio = 1e-3, nfolds = 5, ver = "arma")
+
+
+resSelf_b$b0[resSelf_b$lambdaBestId]
+resSelf_b$b[,resSelf_b$lambdaBestId]
+resSelf_b$lambda[resSelf_b$lambdaBestId]
+resSelf_b$cvscore
+
+resSelf_b$b0[1]
+resSelf_b$b[,1]
+resSelf_b$lambda
+
+library(glmnet)
+resPkg_b <- cv.glmnet(y = dfb$y, x = dfb$x, family = "binomial", 
+                      lambda = resSelf_b$lambda, alpha = 0.5, maxit = 1e5, thresh = 1e-7,
+                    type.measure = "deviance", nfolds = 5, foldid = resSelf_b$foldid)
+
+resPkg_b$glmnet.fit$a0[which.min(resPkg_b$cvm)]
+resPkg_b$glmnet.fit$beta[,which.min(resPkg_b$cvm)]
+resPkg_b$lambda[which.min(resPkg_b$cvm)]
+resPkg_b$cvm
+
+resPkg_b$glmnet.fit$a0[1]
+resPkg_b$glmnet.fit$beta[,1]
+resPkg_b$lambda
+
+```
+
+
+
+
+### Multinomial Response
+
+```{r, eval=TRUE}
+set.seed(1)
+trueb0 <- c(1, 1, 1)
+trueact <- cbind(
+  c(1, 1, 1, 0, 0, 0, 0, 0, 0, 0),
+  c(0, 0, 0, 1, 1, 1, 1, 0, 0, 0),
+  c(0, 0, 0, 0, 0, 1, 1, 1, 1, 0)
+)
+trueb <- matrix(runif(10*3, -1, 1)*10, 10, 3)
+for (m in 1:3) { trueb[which(trueact[,m] == 0),m] <- 0 }
+#
+dfm <- glmDataGen(500, 10, family = "multinomial", trueb0, trueb, s = 0.5, seed = 1)
+
+```
+
+
+```{r, eval=TRUE}
+resSelf_m <- glmPenaltyCV(y = dfm$y, x = dfm$x, family = "multinomial", 
+                          lambdaLength = 100, maxit = 1e5, tol = 1e-7,
+                          alpha = 0.5, minLambdaRatio = 1e-3, nfolds = 5, ver = "arma")
+
+
+resSelf_m$b0[,resSelf_m$lambdaBestId]
+resSelf_m$b[,,resSelf_m$lambdaBestId]
+resSelf_m$lambda[resSelf_m$lambdaBestId]
+resSelf_m$cvscore
+
+resSelf_m$b0[1]
+resSelf_m$b[,1]
+resSelf_m$lambda
+
+library(glmnet)
+resPkg_m <- cv.glmnet(y = dfm$y, x = dfm$x, family = "multinomial", 
+                      lambda = resSelf_b$lambda, alpha = 0.5, maxit = 1e5, thresh = 1e-7,
+                    type.measure = "class", nfolds = 5, foldid = resSelf_m$foldid)
+
+resPkg_m$glmnet.fit$a0[,which.min(resPkg_m$cvm)]
+resPkg_m$glmnet.fit$beta[[1]][,which.min(resPkg_m$cvm)]
+resPkg_m$glmnet.fit$beta[[2]][,which.min(resPkg_m$cvm)]
+resPkg_m$glmnet.fit$beta[[3]][,which.min(resPkg_m$cvm)]
+resPkg_m$lambda[which.min(resPkg_m$cvm)]
+resPkg_m$cvm
+
+resPkg_m$glmnet.fit$a0[1]
+resPkg_m$glmnet.fit$beta[,1]
+resPkg_m$lambda
 
 ```
 

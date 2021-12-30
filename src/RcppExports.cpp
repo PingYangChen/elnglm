@@ -27,9 +27,43 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// binomial_elastic_arma
+Rcpp::List binomial_elastic_arma(arma::vec& y, arma::mat& x, arma::vec& lambdaVec, double& alpha, arma::uword& maxit, double& tol);
+RcppExport SEXP _elnglm_binomial_elastic_arma(SEXP ySEXP, SEXP xSEXP, SEXP lambdaVecSEXP, SEXP alphaSEXP, SEXP maxitSEXP, SEXP tolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::vec& >::type y(ySEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< arma::vec& >::type lambdaVec(lambdaVecSEXP);
+    Rcpp::traits::input_parameter< double& >::type alpha(alphaSEXP);
+    Rcpp::traits::input_parameter< arma::uword& >::type maxit(maxitSEXP);
+    Rcpp::traits::input_parameter< double& >::type tol(tolSEXP);
+    rcpp_result_gen = Rcpp::wrap(binomial_elastic_arma(y, x, lambdaVec, alpha, maxit, tol));
+    return rcpp_result_gen;
+END_RCPP
+}
+// multinomial_elastic_arma
+Rcpp::List multinomial_elastic_arma(arma::mat& y, arma::mat& x, arma::vec& lambdaVec, double& alpha, arma::uword& maxit, double& tol);
+RcppExport SEXP _elnglm_multinomial_elastic_arma(SEXP ySEXP, SEXP xSEXP, SEXP lambdaVecSEXP, SEXP alphaSEXP, SEXP maxitSEXP, SEXP tolSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< arma::mat& >::type y(ySEXP);
+    Rcpp::traits::input_parameter< arma::mat& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< arma::vec& >::type lambdaVec(lambdaVecSEXP);
+    Rcpp::traits::input_parameter< double& >::type alpha(alphaSEXP);
+    Rcpp::traits::input_parameter< arma::uword& >::type maxit(maxitSEXP);
+    Rcpp::traits::input_parameter< double& >::type tol(tolSEXP);
+    rcpp_result_gen = Rcpp::wrap(multinomial_elastic_arma(y, x, lambdaVec, alpha, maxit, tol));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_elnglm_gaussian_elastic_arma", (DL_FUNC) &_elnglm_gaussian_elastic_arma, 6},
+    {"_elnglm_binomial_elastic_arma", (DL_FUNC) &_elnglm_binomial_elastic_arma, 6},
+    {"_elnglm_multinomial_elastic_arma", (DL_FUNC) &_elnglm_multinomial_elastic_arma, 6},
     {NULL, NULL, 0}
 };
 

@@ -5,3 +5,11 @@ gaussian_elastic_arma <- function(y, x, lambdaVec, alpha, maxit, tol) {
     .Call('_elnglm_gaussian_elastic_arma', PACKAGE = 'elnglm', y, x, lambdaVec, alpha, maxit, tol)
 }
 
+binomial_elastic_arma <- function(y, x, lambdaVec, alpha, maxit, tol) {
+    .Call('_elnglm_binomial_elastic_arma', PACKAGE = 'elnglm', y, x, lambdaVec, alpha, maxit, tol)
+}
+
+multinomial_elastic_arma <- function(y, x, lambdaVec, alpha, maxit, tol) {
+    .Call('_elnglm_multinomial_elastic_arma', PACKAGE = 'elnglm', y, x, lambdaVec, alpha, maxit, tol)
+}
+

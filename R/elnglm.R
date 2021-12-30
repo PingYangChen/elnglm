@@ -66,7 +66,8 @@ glmPenaltyCV <- function(
       x1 <- xn[testid,]
       cvmdl <- glmPenaltyFit(y0, x0, family = family, lambdaVec = lambdaVec,
                              alpha = alpha, standardize = FALSE, maxit = maxit, tol = tol, ver = ver)
-      cvpred <- glmPenaltyPred(cvmdl, x1)
+      
+      cvpred <- glmPenaltyPred(cvmdl, x1, type = "probability")
       if (family %in% c("gaussian", "binomial")) {
         yp[testid,] <- cvpred
       } else if (family == "multinomial") {
@@ -78,7 +79,7 @@ glmPenaltyCV <- function(
       # Compute CV-RMSE
       cvscore <- sqrt(colMeans((matrix(y, nrow(x), length(lambdaVec)) - yp)^2))
     } else if (family == "binomial") {
-      # Compute -log(acc)
+      Compute -log(acc)
       cvscore <- sapply(1:length(lambdaVec), function(l) {
         -log(sum(diag(confusion(y, yp[,l])))/n)
       })
@@ -130,13 +131,17 @@ glmPenaltyFit <- function(
     }
 
   } else if (family == "binomial") {
-
-    mdl <- binomial_elastic(y, xn, lambdaVec, alpha = 0.5, maxit = 100, tol = 1e-4)
-
+    if (ver == "r") {
+      mdl <- binomial_elastic(y, xn, lambdaVec, alpha = 0.5, maxit = 100, tol = 1e-4)
+    } else if (ver == "arma") {
+      mdl <- binomial_elastic_arma(y, xn, lambdaVec, alpha = 0.5, maxit = 100, tol = 1e-4)
+    }
   } else if (family == "multinomial") {
-
-    mdl <- multinomial_elastic(y, xn, lambdaVec, alpha = 0.5, maxit = 100, tol = 1e-4)
-
+    if (ver == "r") {
+      mdl <- multinomial_elastic(y, xn, lambdaVec, alpha = 0.5, maxit = 100, tol = 1e-4)
+    } else if (ver == "arma") {
+      mdl <- multinomial_elastic_arma(y, xn, lambdaVec, alpha = 0.5, maxit = 100, tol = 1e-4)
+    }
   }
 
   mdl$family <- family
@@ -148,7 +153,7 @@ glmPenaltyFit <- function(
 }
 
 #' @export
-glmPenaltyPred <- function(object, xnew)
+glmPenaltyPred <- function(object, xnew, type = c("response", "probability", "link"))
 {
   if (is.vector(xnew)) {
     xnew <- matrix(xnew, 1, length(xnew))
@@ -162,9 +167,9 @@ glmPenaltyPred <- function(object, xnew)
   if (object$family == "gaussian") {
     pred <- gaussian_predict(object, xnew)
   } else if (object$family == "binomial") {
-    pred <- binomial_predict(object, xnew)
+    pred <- binomial_predict(object, xnew, type)
   } else if (object$family == "multinomial") {
-    pred <- multinomial_predict(object, xnew)
+    pred <- multinomial_predict(object, xnew, type)
   }
   return(pred)
 }

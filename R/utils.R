@@ -44,15 +44,14 @@ gaussian_elastic <- function(
   #
   b0Vec <- matrix(0, 1, lambdaLength)
   bMat <- matrix(0, d, lambdaLength)
-  sy <- sum(y)
   for (lm in 1:lambdaLength) {
     lambda <- lambdaVec[lm]
     for (i in 1:maxit) {
-      b0 <- (sy - sum(x %*% b))/n
+      rvec <- y - b0 - x %*% b
+      b0 <- sum(rvec + b0)/n
       for (j in 1:d) {
-        xb <- x %*% b
-        yj <- b0 + xb - x[,j]*b[j]
-        b[j] <- shooting((t(x[,j]) %*% (y - yj))/n, lambda*alpha)/(1 + lambda*(1 - alpha))
+        tmp <- x[,j]*b[j]
+        b[j] <- shooting((t(x[,j]) %*% (rvec + tmp))/n, lambda*alpha)/(1 + lambda*(1 - alpha))
       }
       # Compute the mean absolute difference
       dval <- (abs(b0Vec[lm] - b0) + sum(abs(bMat[,lm] - b)))/(d + 1)
@@ -89,11 +88,11 @@ binomial_elastic <- function(
     lambda <- lambdaVec[lm]
     for (i in 1:maxit) {
       wz <- calcWZ(y, x, b0, b)
-      b0 <- (sum(wz$w*(wz$z - x %*% b)))/n
+      rvec <- wz$z - b0 - x %*% b
+      b0 <- sum(wz$w*(rvec + b0))/sum(wz$w)
       for (j in 1:d) {
-        xb <- x %*% b
-        zj <- b0 + xb - x[,j]*b[j]
-        b[j] <- shooting((t(wz$w*x[,j]) %*% (wz$z - zj))/n, lambda*alpha)/(1 + lambda*(1 - alpha))
+        tmp <- x[,j]*b[j]
+        b[j] <- shooting(t(wz$w*x[,j]) %*% (rvec + tmp), lambda*alpha)/(sum(wz$w*x[,j]*x[,j]) + lambda*(1 - alpha))
       }
       # Compute the mean absolute difference
       dval <- (abs(b0Vec[lm] - b0) + sum(abs(bMat[,lm] - b)))/(d + 1)
@@ -132,18 +131,17 @@ multinomial_elastic <- function(
     for (m in 1:ncol(y)) {
       for (i in 1:maxit) {
         wz <- calcWZ(y[,m], x, b0[m], b[,m])
-        b0[m] <- (sum(wz$w*(wz$z - x %*% b[,m])))/n
+        rvec <- wz$z - b0[m] - x %*% b[,m]
+        b0[m] <- sum(wz$w*(rvec + b0[m]))/sum(wz$w)
         for (j in 1:d) {
-          wz <- calcWZ(y[,m], x, b0[m], b[,m])
-          xb <- x %*% b[,m]
-          zj <- b0[m] + xb - x[,j]*b[j,m]
-          b[j,m] <- shooting((t(wz$w*x[,j]) %*% (wz$z - zj))/n, lambda*alpha)/(1 + lambda*(1 - alpha))
+          tmp <- x[,j]*b[j,m]
+          b[j,m] <- shooting(t(wz$w*x[,j]) %*% (rvec + tmp), lambda*alpha)/(sum(wz$w*x[,j]*x[,j]) + lambda*(1 - alpha))
         }
         # Compute the mean absolute difference
-        dval <- (sum(abs(b0Array[,lm] - b0)) + sum(abs(bArray[,,lm] - b)))/(d*yd + yd)
+        dval <- (sum(abs(b0Array[,lm] - b0[m])) + sum(abs(bArray[,,lm] - b[,m])))/(d + 1)
         # Update coefficients
-        b0Array[,lm] <- b0
-        bArray[,,lm] <- b
+        b0Array[m,lm] <- b0[m]
+        bArray[,m,lm] <- b[,m]
         # Check stopping criterion #print(c(lm, m, i, dval))
         if (dval < tol) { break }
       }
@@ -157,8 +155,10 @@ multinomial_elastic <- function(
   ))
 }
 
+
+
 prob_value <- function(x, b0, b) {
-  val <- 1/(exp(-(b0 + x %*% b)))
+  val <- 1/(1 + exp(-(b0 + x %*% b)))
   val[which(val < 1e-5)] <- 1e-5
   val[which(val > (1 - 1e-5))] <- 1 - 1e-5
   return(val)
@@ -166,7 +166,8 @@ prob_value <- function(x, b0, b) {
 
 calcWZ <- function(y, x, b0, b) {
   pv <- prob_value(x, b0, b)
-  wv <- pv*(1 - pv)
+  #wv <- pv*(1 - pv)
+  wv <- rep(0.25, nrow(x))
   return(list(
     w = wv,
     z = b0 + x %*% b + (y - pv)/wv
@@ -180,23 +181,48 @@ gaussian_predict <- function(object, x) {
 }
 
 #'
-binomial_predict <- function(object, x) {
+binomial_predict <- function(object, x, type = c("response", "probability", "link")) {
   eta <- matrix(object$b0, nrow(x), ncol(object$b), byrow = TRUE) + x %*% object$b
-  yp <- exp(eta)/(1 + exp(eta))
-  return((yp > 0.5) + 1 - 1)
+  if (type == "link") {
+    yp <- eta
+  } else {
+    prob <- exp(eta)/(1 + exp(eta))
+    prob[which(prob < 1e-5)] <- 1e-5
+    prob[which(prob > (1 - 1e-5))] <- 1 - 1e-5
+    if (type == "probability") {
+      yp <- prob
+    } else if (type == "response") {
+      yp <- (prob > 0.5) + 1 - 1
+    } else {
+      stop(sprintf("Types of prediction includes 'response', 'probability', 'link'."))
+    }
+  }
+  return(yp)
 }
 
 #'
 
-multinomial_predict <- function(object, x) {
+multinomial_predict <- function(object, x, type = c("response", "probability", "link")) {
 
   yp <- array(0, c(nrow(x), dim(object$b)[2], dim(object$b)[3]))
   for (l in 1:dim(object$b)[3]) {
     eta <- object$b0[,l] + x %*% object$b[,,l]
-    prob <- exp(eta)/matrix(rowSums(exp(eta)), nrow(x), ncol(eta))
-    decision <- matrix(0, nrow(x), ncol(prob))
-    decision[cbind(1:nrow(x), max.col(prob))] <- 1
-    yp[,,l] <- decision
+    if (type == "link") {
+      yp[,,l] <- eta
+    } else {
+      prob <- exp(eta)/matrix(rowSums(exp(eta)), nrow(x), ncol(eta))
+      prob[which(prob < 1e-5)] <- 1e-5
+      prob[which(prob > (1 - 1e-5))] <- 1 - 1e-5
+      if (type == "probability") {
+        yp[,,l] <- prob
+      } else if (type == "response") {
+        decision <- matrix(0, nrow(x), ncol(prob))
+        decision[cbind(1:nrow(x), max.col(prob))] <- 1
+        yp[,,l] <- decision
+      } else {
+        stop(sprintf("Types of prediction includes 'response', 'probability', 'link'."))
+      }
+    }
   }
   return(yp)
 }
