@@ -2,6 +2,6 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 gaussian_elastic_arma <- function(y, x, lambdaVec, alpha, maxit, tol) {
-    .Call(`_elnglm_gaussian_elastic_arma`, y, x, lambdaVec, alpha, maxit, tol)
+    .Call('_elnglm_gaussian_elastic_arma', PACKAGE = 'elnglm', y, x, lambdaVec, alpha, maxit, tol)
 }
 

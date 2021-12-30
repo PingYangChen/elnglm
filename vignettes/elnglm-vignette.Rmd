@@ -1,0 +1,125 @@
+---
+title: "Generalized Linear Model with Elastic Net Penalty"
+author: "Ping-Yang Chen"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+
+Let $(\mathbf{y}, \mathbf{X})$ be the data of $n$ observations, where $\mathbf{y}\in\mathbb{R}^n$ is the vector of the response variable and $\mathbf{X}\in\mathbb{R}^{n\times p}$ is the matrix of $p$ covariates. 
+
+
+```{r, eval=TRUE}
+library(elnglm)
+library(glmnet)
+```
+## Supportive Data Type of **elnglm**
+
+### Continuous Response
+
+```{r, eval=FALSE}
+family <- "gaussian"
+```
+
+Use \code{glmDataGen} to generate data with continuous response.
+
+```{r, eval=TRUE}
+library(elnglm)
+
+
+set.seed(1)
+trueb0 <- 1
+trueact <- c(1, 1, 1, 0, 0, 0, 0, 0, 0, 0)
+trueb <- runif(10, -1, 1)*10
+trueb[which(trueact == 0)] <- 0 
+#
+df <- glmDataGen(500, 10, family = "gaussian", trueb0, trueb, s = 0.5, seed = 1)
+
+```
+
+Use \code{glmDataGen} to generate data with continuous 
+
+```{r, eval=TRUE}
+resSelf <- glmPenaltyCV(y = df$y, x = df$x, family = "gaussian", 
+                        lambdaLength = 100, maxit = 1e5, tol = 1e-7,
+                        alpha = 0.5, minLambdaRatio = 1e-3, nfolds = 5, ver = "arma")
+
+
+resSelf$b0[resSelf$lambdaBestId]
+resSelf$b[,resSelf$lambdaBestId]
+resSelf$lambda[resSelf$lambdaBestId]
+resSelf$cvscore
+
+resSelf$b0[1]
+resSelf$b[,1]
+resSelf$lambda
+
+library(glmnet)
+resPkg <- cv.glmnet(y = df$y, x = df$x, family = family, 
+                    lambda = resSelf$lambda, alpha = 0.5, maxit = 1e5, thresh = 1e-7,
+                    type.measure = "mse", nfolds = 5, foldid = resSelf$foldid)
+
+resPkg$glmnet.fit$a0[which.min(resPkg$cvm)]
+resPkg$glmnet.fit$beta[,which.min(resPkg$cvm)]
+resPkg$lambda[which.min(resPkg$cvm)]
+resPkg$cvm
+
+resPkg$glmnet.fit$a0[1]
+resPkg$glmnet.fit$beta[,1]
+resPkg$lambda
+
+```
+
+
+## Performace Test
+
+
+```{r, eval=TRUE}
+library(elnglm)
+library(glmnet)
+
+set.seed(1)
+trueb0 <- 1
+trueact <- c(1, 1, 1, 0, 0, 0, 0, 0, 0, 0)
+trueb <- runif(10, -1, 1)*10
+trueb[which(trueact == 0)] <- 0 
+
+family <- "gaussian"
+df <- glmDataGen(500, 10, family, trueb0, trueb, s = 0.5, NULL)
+
+cpu1 <- system.time({
+  resSelf <- glmPenaltyCV(y = df$y, x = df$x, family, 
+                          lambdaLength = 100, maxit = 1e5, tol = 1e-7,
+                          alpha = 0.5, minLambdaRatio = 1e-3, nfold = 5, ver = "arma")
+})
+
+resSelf$b0
+resSelf$b[,resSelf$lambdaBestId]
+resSelf$lambda[resSelf$lambdaBestId]
+
+cpu2 <- system.time({
+  resPkg <- cv.glmnet(y = df$y, x = df$x, family = family, 
+                      lambda = resSelf$lambda, alpha = 0.5, maxit = 1e5, thresh = 1e-7,
+                      type.measure = "mse", nfolds = 5)
+})
+
+
+
+resPkg$glmnet.fit$beta[,which.min(resPkg$cvm)]
+
+
+
+```
+
+

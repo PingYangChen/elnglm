@@ -17,15 +17,16 @@ Imports:
     numDeriv,
     Rcpp (>= 1.0.7),
     RcppArmadillo,
-    RcppEigen,
-    RcppParallel
+    glmnet
 Suggests:
-    kintr
+    kintr,
+    rbenchmark  
 VignetteBuilder:
     kintr,
     rmarkdown 
 LinkingTo: 
-    Rcpp
+    Rcpp,
+    RcppArmadillo
 RoxygenNote: 7.1.1
 
 

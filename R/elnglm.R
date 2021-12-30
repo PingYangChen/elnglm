@@ -5,9 +5,9 @@ glmDataGen <- function(n, d, family, trueb0, trueb, s = 0.5, seed = NULL) {
   set.seed(seed)
   x <- matrix(rnorm(n*d), n, d)
   if (family == "gaussian") {
-    y <- trueb0[1] + x %*% trueb[,1] + rnorm(n, 0, s)
+    y <- trueb0 + x %*% trueb + rnorm(n, 0, s)
   } else if (family == "binomial") {
-    eta <- trueb0[1] + x %*% trueb[,1]; yp <- exp(eta)/(1 + exp(eta))
+    eta <- trueb0 + x %*% trueb; yp <- exp(eta)/(1 + exp(eta))
     y <- rbinom(n, 1, yp)
   } else if (family == "multinomial") {
     eta <- trueb0 + x %*% trueb
@@ -23,7 +23,7 @@ glmDataGen <- function(n, d, family, trueb0, trueb, s = 0.5, seed = NULL) {
 #' @export
 glmPenaltyCV <- function(
   y, x, family, lambdaLength = 100, minLambdaRatio = 1e-3, lambdaVec = NULL,
-  alpha = 0.5, standardize = TRUE, maxit = 100, tol = 1e-4, nfold = 3)
+  alpha = 0.5, standardize = TRUE, maxit = 100, tol = 1e-4, nfolds = 3, ver = c("r", "arma"))
 {
   n <- nrow(x)
   if (is.vector(y)) y <- as.matrix(y, n, 1)
@@ -43,29 +43,29 @@ glmPenaltyCV <- function(
   }
 
   mdl <- glmPenaltyFit(y, x, family = family, lambdaVec = lambdaVec,
-                       alpha = alpha, standardize = FALSE, maxit = maxit, tol = tol)
+                       alpha = alpha, standardize = FALSE, maxit = maxit, tol = tol, ver = ver)
 
-  if (nfold > 1) {
-    foldid <- (rep(1:nfold, ceiling(n/nfold))[sample(1:(ceiling(n/nfold)*nfold))])[1:n]
+  if (nfolds > 1) {
+    foldid <- (rep(1:nfolds, ceiling(n/nfolds))[sample(1:(ceiling(n/nfolds)*nfolds))])[1:n]
   } else {
     foldid <- rep(1, n)
   }
 
-  if (nfold > 1) {
+  if (nfolds > 1) {
     if (family %in% c("gaussian", "binomial")) {
       yp <- matrix(0, n, lambdaLength)
     } else if (family == "multinomial") {
       yp <- array(0, c(n, ncol(y), lambdaLength))
     }
 
-    for (ifold in 1:nfold) {
+    for (ifold in 1:nfolds) {
       trainid <- which(foldid != ifold)
       testid <- which(foldid == ifold)
       x0 <- xn[trainid,]
       y0 <- y[trainid,]
       x1 <- xn[testid,]
       cvmdl <- glmPenaltyFit(y0, x0, family = family, lambdaVec = lambdaVec,
-                             alpha = alpha, standardize = FALSE, maxit = maxit, tol = tol)
+                             alpha = alpha, standardize = FALSE, maxit = maxit, tol = tol, ver = ver)
       cvpred <- glmPenaltyPred(cvmdl, x1)
       if (family %in% c("gaussian", "binomial")) {
         yp[testid,] <- cvpred
@@ -94,17 +94,19 @@ glmPenaltyCV <- function(
   } else {
     cvscore <- 0; lambdaBestId <- 1
   }
-  mdl$nfold <- nfold
+  mdl$nfolds <- nfolds
   mdl$foldid <- foldid
   mdl$lambdaBestId <- lambdaBestId
   mdl$cvscore <- cvscore
   return(mdl)
 }
 
+#' @importFrom Rcpp cppFunction sourceCpp
+#' @useDynLib elnglm
 #' @export
 glmPenaltyFit <- function(
   y, x, family, lambdaLength = 100, minLambdaRatio = 1e-3, lambdaVec = NULL,
-  alpha = 0.5, standardize = TRUE, maxit = 100, tol = 1e-4)
+  alpha = 0.5, standardize = TRUE, maxit = 100, tol = 1e-4, ver = c("r", "arma"))
 {
   if (standardize) {
     xm <- colMeans(x)
@@ -121,8 +123,11 @@ glmPenaltyFit <- function(
   }
 
   if (family == "gaussian") {
-
-    mdl <- gaussian_elastic(y, xn, lambdaVec, alpha = 0.5, maxit = 100, tol = 1e-4)
+    if (ver == "r") {
+      mdl <- gaussian_elastic(y, xn, lambdaVec, alpha = 0.5, maxit = 100, tol = 1e-4)
+    } else if (ver == "arma") {
+      mdl <- gaussian_elastic_arma(y, xn, lambdaVec, alpha = 0.5, maxit = 100, tol = 1e-4)
+    }
 
   } else if (family == "binomial") {
 
@@ -165,8 +170,5 @@ glmPenaltyPred <- function(object, xnew)
 }
 
 
-# glmPenaltyPredCpp <- function(y, x, engine = "arma") {
-#
-# }
-#
+
 
