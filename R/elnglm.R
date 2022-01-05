@@ -147,7 +147,7 @@ glmPenaltyCV <- function(
     xs[which(xs == 0)] <- 1
     xn <- (x - matrix(xm, nrow(x), ncol(x), byrow = TRUE))/xs
   } else {
-    xn <- x
+    xn <- x; xm <- rep(0, ncol(x)); xs <- rep(1, ncol(x))
   }
   #
   if (is.null(lambdaVec)) {
@@ -286,7 +286,7 @@ glmPenaltyFit <- function(
     xs[which(xs == 0)] <- 1
     xn <- (x - matrix(xm, nrow(x), ncol(x), byrow = TRUE))/matrix(xs, nrow(x), ncol(x), byrow = TRUE)
   } else {
-    xn <- x; xm <- NULL; xs <- NULL
+    xn <- x; xm <- rep(0, ncol(x)); xs <- rep(1, ncol(x))
   }
 
   if (is.null(lambdaVec)) {

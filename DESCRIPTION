@@ -23,6 +23,7 @@ Suggests:
     rbenchmark  
 VignetteBuilder:
     kintr,
+    prettydoc,
     rmarkdown 
 LinkingTo: 
     Rcpp,
