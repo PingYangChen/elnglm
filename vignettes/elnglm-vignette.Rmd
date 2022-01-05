@@ -16,209 +16,305 @@ knitr::opts_chunk$set(
 )
 ```
 
+## Theoretical Development
 
-Let $(\mathbf{y}, \mathbf{X})$ be the data of $n$ observations, where $\mathbf{y}\in\mathbb{R}^n$ is the vector of the response variable and $\mathbf{X}\in\mathbb{R}^{n\times p}$ is the matrix of $p$ covariates. 
+Let $(\mathbf{y}, \mathbf{X})$ be the data of $n$ observations, where $\mathbf{y}\in\mathbb{R}^n$ is the vector of the response variable and $\mathbf{X}\in\mathbb{R}^{n\times p}$ is the matrix of $p$ covariates.
+The linear model is the common approach to describe the linear associations between the covariates and the response variable. For a given $\mathbf{x}$ and proper link function $g(\cdot)$, the expected response has the form of the linear combination of the covariates: 
+$$
+g\left[E(Y\mid\mathbf{x})\right] = \beta_0 + \sum_{j=1}^p x_j\beta_j
+$$
+where $\beta_0$ is the intercept term and $\boldsymbol\beta=(\beta_1, \ldots, \beta_p)$ are the regression coefficients.  
+
+(TBW)
+
+Suppose $Y$ is continuous response variable. The elastic net estimates of $\beta_0$ and $\boldsymbol\beta$ minimize the following objective function
+$$
+\underset{\beta_0, \boldsymbol\beta}{\min} \frac{1}{2n}\sum_{i=1}^n \left( y_i - \beta_0 - x_i^\top\boldsymbol\beta \right)^2 + \lambda \sum_{j=1}^p\left[ \frac{1-\alpha}{2} \beta_j^2 + \alpha  |\beta_j| \right]
+$$
+where $\alpha$ is the elastic net mixing parameter between the ridge regression penalty ($\alpha = 0$) and lasso ($\alpha = 1$) penalty; $\lambda$ is the shrinkage parameter.
 
 
-```{r, eval=TRUE}
-library(elnglm)
-library(glmnet)
-```
-## Supportive Data Type of **elnglm**
 
-### Continuous Response
+For binary responses, $Y\in\{0,1\}$, the linear logistic regression is considered. That is, 
+$$
+p(x)=\mathcal{Pr}(Y = 1\mid x) = \frac{1}{1 + e^{-(\beta_0 + x^\top\boldsymbol\beta)}},
+$$
+or equivalently,
+$$
+\log{\frac{p(x)}{1-p(x)}}=\beta_0 + x^\top\boldsymbol\beta
+$$
 
+The elastic-net logistic regression estimates of $\beta_0$ and $\boldsymbol\beta$ maximize the penalized likelihood function
+$$
+\underset{\beta_0, \boldsymbol\beta}{\max} \frac{1}{n}\sum_{i=1}^n 
+\Big[ I\{y_i=0\}\log{\{1-p(x_i)\}} + I\{y_i=1\}\log{p(x_i)} \Big] + 
+\lambda \sum_{j=1}^p\left[ \frac{1-\alpha}{2} \beta_j^2 + \alpha  |\beta_j| \right]
+$$
+When the response variable has multiple categories, the multinomial logistic model is used. Suppose there are $K$ categories, $\{0, 1, \ldots, K-1\}$, the probability that $Y$ belongs to the $k$-th category is
+$$
+p_k(x)=\mathcal{Pr}(Y = k\mid x) = \frac{e^{\beta_{0k} + x^\top\boldsymbol\beta_k}}{\sum_{l=0}^{K-1} e^{\beta_{0\mathcal{l}} + x^\top\boldsymbol\beta_\mathcal{l}}},
+$$
+$$
+\underset{\beta_{0k}, \boldsymbol\beta_k, k=0,\ldots,K-1}{\max} \frac{1}{n}\sum_{i=1}^n 
+\Big[ \sum_{k=0}^{K-1}\log{p_k(x_i)} \Big] + 
+\lambda \sum_{j=1}^p\sum_{k=0}^{K-1}\left[ \frac{1-\alpha}{2} \beta_{jk}^2 + \alpha  |\beta_{jk}| \right]
+$$
+
+## How to Use **elnglm**
+
+### Installation
+
+The **elnglm** package is available on the Github repository \url{https://github.com/PingYangChen/elnglm}. The user can install **elnglm** in R by the command of the **devtools** package.
 ```{r, eval=FALSE}
-family <- "gaussian"
+install.packages("devtools")
+devtools::install_github("PingYangChen/elnglm")
 ```
+
+Then, activate **elnglm** by the standard command in R.
+```{r, eval=TRUE, message=FALSE}
+library(elnglm)
+```
+
+
+### Simulation Data Generator
+
 
 Use \code{glmDataGen} to generate data with continuous response.
 
-```{r, eval=TRUE}
-library(elnglm)
-
-set.seed(1)
+```{r gendata, eval=TRUE}
+set.seed(99)
 trueb0 <- 1
 trueact <- c(1, 1, 1, 0, 0, 0, 0, 0, 0, 0)
 trueb <- runif(10, -1, 1)*10
 trueb[which(trueact == 0)] <- 0 
 #
-df <- glmDataGen(500, 10, family = "gaussian", trueb0, trueb, s = 0.5, seed = 1)
-
-```
-
-Use \code{glmDataGen} to generate data with continuous 
-
-```{r, eval=TRUE}
-resSelf <- glmPenaltyCV(y = df$y, x = df$x, family = "gaussian", 
-                        lambdaLength = 100, maxit = 1e5, tol = 1e-7,
-                        alpha = 0.5, minLambdaRatio = 1e-3, nfolds = 5, ver = "arma")
-
-
-resSelf$b0[resSelf$lambdaBestId]
-resSelf$b[,resSelf$lambdaBestId]
-resSelf$lambda[resSelf$lambdaBestId]
-resSelf$cvscore
-
-resSelf$b0[1]
-resSelf$b[,1]
-resSelf$lambda
-
-library(glmnet)
-resPkg <- cv.glmnet(y = df$y, x = df$x, family = family, 
-                    lambda = resSelf$lambda, alpha = 0.5, maxit = 1e5, thresh = 1e-7,
-                    type.measure = "mse", nfolds = 5, foldid = resSelf$foldid)
-
-resPkg$glmnet.fit$a0[which.min(resPkg$cvm)]
-resPkg$glmnet.fit$beta[,which.min(resPkg$cvm)]
-resPkg$lambda[which.min(resPkg$cvm)]
-resPkg$cvm
-
-resPkg$glmnet.fit$a0[1]
-resPkg$glmnet.fit$beta[,1]
-resPkg$lambda
-
-```
-
-
-### Binary Response
-
-```{r, eval=TRUE}
-set.seed(1)
-trueb0 <- 1
-trueact <- c(1, 1, 1, 0, 0, 0, 0, 0, 0, 0)
-trueb <- runif(10, -1, 1)*10
-trueb[which(trueact == 0)] <- 0 
+df <- glmDataGen(500, 10, family = "gaussian", trueb0, trueb, s = 1, seed = 100)
 #
-dfb <- glmDataGen(500, 10, family = "binomial", trueb0, trueb, s = 0.5, seed = 1)
-
+dfb <- glmDataGen(500, 10, family = "binomial", trueb0, trueb, seed = 100)
 ```
 
-
-```{r, eval=TRUE}
-resSelf_b <- glmPenaltyCV(y = dfb$y, x = dfb$x, family = "binomial", 
-                          lambdaLength = 100, maxit = 1e5, tol = 1e-7,
-                          alpha = 0.5, minLambdaRatio = 1e-3, nfolds = 5, ver = "arma")
-
-
-resSelf_b$b0[resSelf_b$lambdaBestId]
-resSelf_b$b[,resSelf_b$lambdaBestId]
-resSelf_b$lambda[resSelf_b$lambdaBestId]
-resSelf_b$cvscore
-
-resSelf_b$b0[1]
-resSelf_b$b[,1]
-resSelf_b$lambda
-
-library(glmnet)
-resPkg_b <- cv.glmnet(y = dfb$y, x = dfb$x, family = "binomial", 
-                      lambda = resSelf_b$lambda, alpha = 0.5, maxit = 1e5, thresh = 1e-7,
-                    type.measure = "deviance", nfolds = 5, foldid = resSelf_b$foldid)
-
-resPkg_b$glmnet.fit$a0[which.min(resPkg_b$cvm)]
-resPkg_b$glmnet.fit$beta[,which.min(resPkg_b$cvm)]
-resPkg_b$lambda[which.min(resPkg_b$cvm)]
-resPkg_b$cvm
-
-resPkg_b$glmnet.fit$a0[1]
-resPkg_b$glmnet.fit$beta[,1]
-resPkg_b$lambda
-
-```
-
-
-
-
-### Multinomial Response
-
-```{r, eval=TRUE}
-set.seed(1)
-trueb0 <- c(1, 1, 1)
-trueact <- cbind(
+```{r gendatam, eval=TRUE}
+set.seed(99)
+trueb0m <- c(1, 1, 1)
+trueactm <- cbind(
   c(1, 1, 1, 0, 0, 0, 0, 0, 0, 0),
   c(0, 0, 0, 1, 1, 1, 1, 0, 0, 0),
   c(0, 0, 0, 0, 0, 1, 1, 1, 1, 0)
 )
-trueb <- matrix(runif(10*3, -1, 1)*10, 10, 3)
-for (m in 1:3) { trueb[which(trueact[,m] == 0),m] <- 0 }
+truebm <- matrix(runif(10*3, -1, 1)*10, 10, 3)
+for (m in 1:3) { truebm[which(trueactm[,m] == 0),m] <- 0 }
 #
-dfm <- glmDataGen(500, 10, family = "multinomial", trueb0, trueb, s = 0.5, seed = 1)
+dfm <- glmDataGen(500, 10, family = "multinomial", trueb0m, truebm, seed = 100)
 
 ```
 
 
-```{r, eval=TRUE}
-resSelf_m <- glmPenaltyCV(y = dfm$y, x = dfm$x, family = "multinomial", 
-                          lambdaLength = 100, maxit = 1e5, tol = 1e-7,
-                          alpha = 0.5, minLambdaRatio = 1e-3, nfolds = 5, ver = "arma")
+### Modelling and Prediction
 
 
-resSelf_m$b0[,resSelf_m$lambdaBestId]
-resSelf_m$b[,,resSelf_m$lambdaBestId]
-resSelf_m$lambda[resSelf_m$lambdaBestId]
-resSelf_m$cvscore
+Use \code{glmDataGen} to generate data with continuous 
 
-resSelf_m$b0[1]
-resSelf_m$b[,1]
-resSelf_m$lambda
+```{r linmdl, eval=TRUE, message=FALSE}
+mdl <- glmPenaltyFit(y = df$y, x = df$x, family = "gaussian", lambdaLength = 100, 
+                     maxit = 1e5, tol = 1e-7, alpha = 0.5, minLambdaRatio = 1e-3, 
+                     ver = "arma")
+```
 
-library(glmnet)
-resPkg_m <- cv.glmnet(y = dfm$y, x = dfm$x, family = "multinomial", 
-                      lambda = resSelf_b$lambda, alpha = 0.5, maxit = 1e5, thresh = 1e-7,
-                    type.measure = "class", nfolds = 5, foldid = resSelf_m$foldid)
+```{r lassoplot, eval=TRUE, echo=TRUE, warning=FALSE, fig.cap="Shrinkage paths of the regression coefficients.", out.width="95%", fig.align="center", fig.width=5, fig.height=5, dpi=300}
+colorlist <- sapply(1:nrow(mdl$b), function(k) {
+  val <- runif(3); rgb(val[1], val[2], val[3])
+})
+plot(mdl$lambda, mdl$b[1,], type = "l", col = colorlist[1], ylim = range(mdl$b),
+     xlab = "lambda", ylab = "Coefficient Value")
+for (i in 2:nrow(mdl$b)) {
+  points(mdl$lambda, mdl$b[i,], type = "l", col = colorlist[i])
+}
+legend("topright", legend = sprintf("b%d", 1:nrow(mdl$b)), ncol = 3,
+       col = colorlist, lty = 1, cex = 0.6)
+```
 
-resPkg_m$glmnet.fit$a0[,which.min(resPkg_m$cvm)]
-resPkg_m$glmnet.fit$beta[[1]][,which.min(resPkg_m$cvm)]
-resPkg_m$glmnet.fit$beta[[2]][,which.min(resPkg_m$cvm)]
-resPkg_m$glmnet.fit$beta[[3]][,which.min(resPkg_m$cvm)]
-resPkg_m$lambda[which.min(resPkg_m$cvm)]
-resPkg_m$cvm
+```{r lincv, eval=TRUE, message=FALSE}
+mdlcv <- glmPenaltyCV(y = df$y, x = df$x, family = "gaussian", lambdaLength = 100, 
+                      maxit = 1e5, tol = 1e-7, alpha = 0.5, minLambdaRatio = 1e-3,
+                      nfolds = 10, ver = "arma")
+```
 
-resPkg_m$glmnet.fit$a0[1]
-resPkg_m$glmnet.fit$beta[,1]
-resPkg_m$lambda
+```{r cvplot, eval=TRUE, echo=TRUE, warning=FALSE, fig.cap="RMSE values obtained by cross-validation for different lambda values.", out.width="95%", fig.align="center", fig.width=5, fig.height=5, dpi=300}
+plot(mdlcv$lambda, mdlcv$cvscore, type = "l", xlab = "lambda", ylab = "RMSE Value")
+```
 
+```{r lincoef, eval=TRUE}
+# Intercept of the linear model
+mdlcv$b0[mdlcv$lambdaBestId]
+# Regression coefficients of the linear model
+mdlcv$b[,mdlcv$lambdaBestId]
+```
+
+
+```{r linpred, eval=TRUE}
+# Predict for new data
+xnew <- matrix(rnorm(10), 1, 10)
+yp <- glmPenaltyPred(mdlcv, xnew)
+dim(yp) # 1 100
+print(yp[,mdlcv$lambdaBestId])
+```
+
+
+
+
+```{r bincv, eval=TRUE}
+mdlcv_b <- glmPenaltyCV(y = dfb$y, x = dfb$x, family = "binomial", lambdaLength = 100,
+                        maxit = 1e5, tol = 1e-7, alpha = 0.5, minLambdaRatio = 1e-3, 
+                        nfolds = 10, ver = "arma")
+```
+
+
+```{r cvplot_b, eval=TRUE, echo=TRUE, warning=FALSE, fig.cap="Accuracy values obtained by cross-validation for different lambda values.", out.width="95%", fig.align="center", fig.width=5, fig.height=5, dpi=300}
+plot(mdlcv_b$lambda, exp(-mdlcv_b$cvscore), type = "l", xlab = "lambda", ylab = "Accuracy Value")
+```
+
+```{r bincoef, eval=TRUE}
+# Intercept of the logistic model
+mdlcv_b$b0[mdlcv_b$lambdaBestId]
+# Regression coefficients of the logistic model
+mdlcv_b$b[,mdlcv_b$lambdaBestId]
+```
+
+
+```{r binpred, eval=TRUE}
+# Predict for new data
+xnew <- matrix(rnorm(10), 1, 10)
+#
+yp <- glmPenaltyPred(mdlcv_b, xnew, type = "response")
+print(yp[,mdlcv_b$lambdaBestId])
+#
+yp <- glmPenaltyPred(mdlcv_b, xnew, type = "probability")
+print(yp[,mdlcv_b$lambdaBestId])
+#
+yp <- glmPenaltyPred(mdlcv_b, xnew, type = "link")
+print(yp[,mdlcv_b$lambdaBestId])
+```
+
+
+
+```{r multinomcv, eval=TRUE}
+mdlcv_m <- glmPenaltyCV(y = dfm$y, x = dfm$x, family = "multinomial", lambdaLength = 100, 
+                        maxit = 1e5, tol = 1e-7, alpha = 0.5, minLambdaRatio = 1e-3, 
+                        nfolds = 10, ver = "arma")
+```
+
+```{r multinomcoef, eval=TRUE}
+# Intercept of the multinomial model
+mdlcv_m$b0[,mdlcv_m$lambdaBestId]
+# Regression coefficients of the multinomial model
+mdlcv_m$b[,,mdlcv_m$lambdaBestId]
+```
+
+
+```{r multinompred, eval=TRUE}
+# Predict for new data
+xnew <- matrix(rnorm(10), 1, 10)
+#
+yp <- glmPenaltyPred(mdlcv_m, xnew, type = "response")
+print(yp[,,mdlcv_m$lambdaBestId])
+#
+yp <- glmPenaltyPred(mdlcv_m, xnew, type = "probability")
+print(yp[,,mdlcv_m$lambdaBestId])
+#
+yp <- glmPenaltyPred(mdlcv_m, xnew, type = "link")
+print(yp[,,mdlcv_m$lambdaBestId])
 ```
 
 
 ## Performace Test
 
 
-```{r, eval=TRUE}
-library(elnglm)
+```{r perf, eval=TRUE,message=FALSE,warning=FALSE}
 library(glmnet)
-
-set.seed(1)
+# Set for true values of the regression coefficients
 trueb0 <- 1
-trueact <- c(1, 1, 1, 0, 0, 0, 0, 0, 0, 0)
-trueb <- runif(10, -1, 1)*10
-trueb[which(trueact == 0)] <- 0 
+trueb <- c(6, -6, 2, -0.9, 0, 0, 0, 0, 0, 0)
+nRep <- 50
+testResult <- list(
+  "elnglm_r" = list(
+    "estb" = matrix(0, nRep, length(trueb)), 
+    "cputime" = rep(0, length(trueb))
+  ),
+  "elnglm_arma" = list(
+    "estb" = matrix(0, nRep, length(trueb)), 
+    "cputime" = rep(0, length(trueb))
+  ),
+  "glmnet" = list(
+    "estb" = matrix(0, nRep, length(trueb)), 
+    "cputime" = rep(0, length(trueb))
+  )
+)
 
-family <- "gaussian"
-df <- glmDataGen(500, 10, family, trueb0, trueb, s = 0.5, NULL)
-
-cpu1 <- system.time({
-  resSelf <- glmPenaltyCV(y = df$y, x = df$x, family, 
-                          lambdaLength = 100, maxit = 1e5, tol = 1e-7,
-                          alpha = 0.5, minLambdaRatio = 1e-3, nfold = 5, ver = "arma")
-})
-
-resSelf$b0
-resSelf$b[,resSelf$lambdaBestId]
-resSelf$lambda[resSelf$lambdaBestId]
-
-cpu2 <- system.time({
-  resPkg <- cv.glmnet(y = df$y, x = df$x, family = family, 
-                      lambda = resSelf$lambda, alpha = 0.5, maxit = 1e5, thresh = 1e-7,
-                      type.measure = "mse", nfolds = 5)
-})
-
-
-
-resPkg$glmnet.fit$beta[,which.min(resPkg$cvm)]
-
-
-
+for (iRep in 1:nRep) {
+  # Generate simulation data
+  df <- glmDataGen(500, 10, family = "gaussian", trueb0, trueb, s = 1, 
+                   seed = iRep)
+  # Run cv for self-developed elnglm using R engine
+  cpu0 <- system.time({
+    mdlSelf_r <- glmPenaltyCV(y = df$y, x = df$x, family = "gaussian", 
+                              lambdaLength = 100, maxit = 1e5, tol = 1e-7,
+                              alpha = 0.5, minLambdaRatio = 1e-3, nfold = 5, 
+                              ver = "r")
+  })
+  testResult$elnglm_r$estb[iRep,] <- mdlSelf_r$b[,mdlSelf_r$lambdaBestId]
+  testResult$elnglm_r$cputime[iRep] <- cpu0
+  
+  # Run cv for self-developed elnglm using armadillo engine
+  cpu1 <- system.time({
+    mdlSelf_arma <- glmPenaltyCV(y = df$y, x = df$x, family = "gaussian", 
+                                 lambdaLength = 100, maxit = 1e5, tol = 1e-7,
+                                 alpha = 0.5, minLambdaRatio = 1e-3, nfold = 5, 
+                                 ver = "arma")
+  })
+  testResult$elnglm_arma$estb[iRep,] <- mdlSelf_arma$b[,mdlSelf_arma$lambdaBestId]
+  testResult$elnglm_arma$cputime[iRep] <- cpu1
+  
+  # Run cv for the glmnet package
+  cpu2 <- system.time({
+    mdlPkg <- cv.glmnet(y = df$y, x = df$x, family = "gaussian", 
+                        lambda = mdlSelf_arma$lambda, maxit = 1e5, thresh = 1e-7,
+                        alpha = 0.5, type.measure = "mse", nfolds = 5)
+  })
+  testResult$glmnet$estb[iRep,] <- mdlPkg$glmnet.fit$beta[,which.min(mdlPkg$cvm)]
+  testResult$glmnet$cputime[iRep] <- cpu2
+}
 ```
+
+```{r perfshow, eval=TRUE}
+trueact <- abs(trueb) > 0
+#
+elnglm_r_act <- abs(testResult$elnglm_r$estb) > 0
+elnglm_arma_act <- abs(testResult$elnglm_arma$estb) > 0
+glmnet_act <- abs(testResult$glmnet$estb) > 0
+#
+sumTable <- rbind(
+  c(
+    sapply(1:length(trueact), function(j) 100*mean(elnglm_r_act[,j] == trueact[j])),
+    mean(testResult$elnglm_r$cputime)
+  ),
+  c(
+    sapply(1:length(trueact), function(j) 100*mean(elnglm_arma_act[,j] == trueact[j])),
+    mean(testResult$elnglm_arma$cputime)
+  ),
+  c(
+    sapply(1:length(trueact), function(j) 100*mean(glmnet_act[,j] == trueact[j])),
+    mean(testResult$glmnet$cputime)
+  )
+)
+dimnames(sumTable) <- list(
+  c("elnglm_r", "elnglm_arma", "glmnet"), 
+  c(sprintf("x%02d", 1:length(trueact)), "CPU Time (s)")
+)
+#
+# Accuracy values, %, of identifying active/inactive status of the covariates
+# and computing time, in seconds, of the functions.
+print(sumTable)
+```
+
 
 
